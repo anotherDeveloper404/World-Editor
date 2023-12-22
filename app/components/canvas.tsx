@@ -1,13 +1,12 @@
-import { useEffect, useContext, useRef, forwardRef } from 'react';
-import GraphContext from '~/contexts/graph';
-
-
+import { useEffect, useRef, forwardRef, useState } from 'react';
+import { useGraphContext } from '~/contexts/graph';
+import { addPoints, calculateCenter } from '~/utils/helpers';
 
 const Canvas = forwardRef(
     function Canvas(props, ref) {
         const canvasRef = ref as React.MutableRefObject<HTMLCanvasElement>;
         const animationRef = useRef<number | null>(null);
-        const {graph, selected, hovered, dragging} = useContext(GraphContext);
+        const {graph, selected, hovered, dragging, zoom, drag, offset} = useGraphContext();
     
         useEffect(() => {
             if(!canvasRef) return;
@@ -15,11 +14,18 @@ const Canvas = forwardRef(
             if (!canvas) return;
             canvas.width = 600;
             canvas.height = 600;
+            const center = calculateCenter(canvas);
             const context = canvas.getContext('2d');
             
             if (!context) return;
             const animate = () => {
+                context.restore();
                 context.clearRect(0, 0, canvas.width, canvas.height);
+                context.save();
+                context.translate(center.x, center.y);
+                context.scale(1 / zoom, 1 / zoom);
+                const currentOffset = addPoints(offset, drag.offset);
+                context.translate(currentOffset.x, currentOffset.y);
                 draw(context);
                 animationRef.current = requestAnimationFrame(animate);
             };
@@ -31,7 +37,7 @@ const Canvas = forwardRef(
                     cancelAnimationFrame(animationRef.current);
                 }
             };
-        }, [graph, selected, hovered, dragging]);
+        }, [graph, selected, hovered, dragging, zoom, drag, offset]);
 
         const draw = (ctx: CanvasRenderingContext2D, size: number = 18, color = 'black') => {
             

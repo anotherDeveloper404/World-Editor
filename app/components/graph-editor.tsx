@@ -1,35 +1,32 @@
 import Canvas from "~/components/canvas";
-import { useEffect, useRef, useContext, useState } from 'react';
-import GraphContext from "~/contexts/graph";
+import { useEffect, forwardRef } from 'react';
+import { Graph } from "~/components/data-structures/graph";
+import { useGraphContext } from "~/contexts/graph";
+import Point from "./data-structures/point";
+import { getMousePosition } from "~/utils/helpers";
 
-type GraphEditorProps = {
-    onMousedown: (x: number, y: number) => void;
-    onMouseOver: (x: number, y: number) => void;
-    handleRightClick: (event: MouseEvent) => void;
-    mouseUp: () => void;
-    handleAddVertexDuringDrag: (x: number, y: number) => void;
-}
-export default function GraphEditor(props: GraphEditorProps): JSX.Element {
-    const ref = useRef<HTMLCanvasElement>(null);
-    const { graph, dragging, selected, hovered } = useContext(GraphContext);
+const GraphEditor = forwardRef(function GraphEditor(props, ref): JSX.Element {
+    const canvasRef = ref as React.MutableRefObject<HTMLCanvasElement>;
+    const { graph, dragging, selected, hovered, zoom, drag, offset, setGraph, setDragging, setHovered,setSelected } = useGraphContext();
 
     const handleMousedown = (event: MouseEvent) => {
-      if (!ref.current) return;
+      if (!canvasRef.current) return;
       if (event.button === 2) {
-        props.handleRightClick(event);
-      } else {
-        props.onMousedown(event.offsetX, event.offsetY);
+        handleRightClick(event);
+      } else if (event.button === 0) {
+        const mousePosition = getMousePosition(event, zoom, offset);
+        handleLeftClick(mousePosition.x, mousePosition.y);
       }
     };
   
     const handleMouseOver = (event: MouseEvent) => {
-      if (!ref.current) return;
-      props.onMouseOver(event.offsetX, event.offsetY);
+      if (!canvasRef.current) return;
+      const mousePosition = getMousePosition(event, zoom, offset);
+      handleHover(mousePosition.x, mousePosition.y);
 
       if (dragging) {
         // If dragging is true, handle adding vertex during drag
-        props.handleAddVertexDuringDrag(event.offsetX, event.offsetY);
-        
+        handleDragging(mousePosition.x, mousePosition.y);
       }
     };
 
@@ -38,12 +35,94 @@ export default function GraphEditor(props: GraphEditorProps): JSX.Element {
     }
 
     const handleMouseUp = () => {
-        if (!ref.current) return;
-        props.mouseUp();
+        if (!canvasRef.current) return;
+        stopDragging();
     }
+
+    const handleLeftClick = (x: number, y: number) => {
+        const nearestVertex = graph.getNearestVertex(x, y, 10);
+        if (nearestVertex) {
+          if (selected) {
+            setGraph((prevGraph) => {
+              const newGraph = new Graph();
+              newGraph.vertices = [...prevGraph.vertices];
+              newGraph.addEdge(selected, nearestVertex, null);
+              return newGraph;
+            });
+          }
+          setSelected(nearestVertex);
+          setDragging(true);
+        } else {
+          setGraph((prevGraph) => {
+            const newGraph = new Graph();
+            newGraph.vertices = [...prevGraph.vertices];
+            const vertex = newGraph.addVertex(new Point(x, y));
+            if (selected) {
+              newGraph.addEdge(selected, vertex, null);
+            }
+            setSelected(vertex);
+            setHovered(vertex);
+            setDragging(true);
+            return newGraph;
+          });
+        }
+    }
+
+    const handleHover = (x: number, y: number) => {
+        const nearestVertex = graph.getNearestVertex(x, y, 10);
+        if (nearestVertex) {
+            setHovered((prevState) => {
+            if (prevState === nearestVertex) return prevState;
+            return nearestVertex;
+            });
+        } else {
+            setHovered((prevState) => {
+            if (prevState === null) return prevState;
+            return null;
+            });
+        }
+    }
+
+    const deleteVertex = (x: number, y: number) => {
+        const nearestVertex = graph.getNearestVertex(x, y, 10);
+        if (nearestVertex) {
+            setGraph((prevGraph) => {
+            const newGraph = new Graph();
+            newGraph.vertices = [...prevGraph.vertices];
+            newGraph.removeVertex(nearestVertex);
+            return newGraph;
+            });
+            setSelected(null);
+        }
+    }
+
+    const handleRightClick = (event: MouseEvent) => {
+        if (!hovered && selected) {
+            setSelected(null);
+        } else {
+            const mousePosition = getMousePosition(event, zoom, offset);
+            deleteVertex(mousePosition.x, mousePosition.y);
+        }
+    }
+
+    const stopDragging = () => {
+        setDragging(false);
+    }
+
+    const handleDragging = (x: number, y: number) => {
+        if (dragging && hovered) {
+            setGraph((prevGraph) => {
+            const newGraph = new Graph();
+            newGraph.vertices = [...prevGraph.vertices];
+            const newVertex = newGraph.updateVertex(hovered, new Point(x, y));
+            setHovered(newVertex);
+            return newGraph;
+            });
+        }
+    };
   
     useEffect(() => {
-      const canvas = ref.current;
+      const canvas = canvasRef.current;
       if (!canvas) return;
       let animationFrameId: number;
 
@@ -77,12 +156,14 @@ export default function GraphEditor(props: GraphEditorProps): JSX.Element {
         removeEventListeners();
         cancelAnimationFrame(animationFrameId);
       }
-    }, [graph, dragging, selected, hovered]);
+    }, [graph, dragging, selected, hovered, zoom, drag, offset]);
 
 
     return (
         <div>
-            <Canvas ref={ref} />
+            <Canvas ref={canvasRef} />
         </div>
     )
-}
+});
+
+export default GraphEditor;
