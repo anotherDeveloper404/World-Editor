@@ -1,5 +1,4 @@
-import { Edge, EdgeInterface } from "./edge";
-import { Vertex, VertexInterface } from "./vertex";
+import { Vertex } from "./vertex";
 
 export interface GraphInterface {
     vertices: Array<Vertex>;
@@ -44,7 +43,7 @@ export class Graph implements GraphInterface {
         return true;
     }
 
-    removeVertex(vertex: VertexInterface) {
+    removeVertex(vertex: Vertex) {
         // Get all edges that point to this vertex
         const filteredEdges = this.vertices.map(v => v.edges.filter(edge => edge.end.x === vertex.data.x && edge.end.y === vertex.data.y));
         // Remove all edges that point to this vertex
@@ -59,20 +58,19 @@ export class Graph implements GraphInterface {
         this.vertices = this.vertices.filter(v => v !== vertex);
     }
 
-    vertexExists(data: VertexInterface['data']) {
-        const comparisonFunction = (vertex: VertexInterface) => vertex.data === data;
+    vertexExists(data: Vertex['data']) {
+        const comparisonFunction = (vertex: Vertex) => vertex.data === data;
         return this.vertices.some(comparisonFunction);
     }
 
     getVertex(data: Vertex['data']): Vertex | undefined {
-        const comparisonFunction = (vertex: Vertex) => vertex.data === data;
+        const comparisonFunction = (vertex: Vertex) => vertex.data.x === data.x && vertex.data.y === data.y;
         return this.vertices.find(comparisonFunction);
     }
 
     updateVertex(vertex: Vertex, data: Vertex['data']) {
         // Find all edges that point to this vertex
         const filteredEdges = this.vertices.map(v => v.edges.filter(edge => edge.end.x === vertex.data.x && edge.end.y === vertex.data.y));
-        console.log("Before removing:",filteredEdges);
         // Remove all edges that point to this vertex
         if (filteredEdges.length > 0) {
             filteredEdges.forEach(edges => edges.forEach(edge => {
@@ -86,7 +84,6 @@ export class Graph implements GraphInterface {
         // Update vertex data
         vertex.data = data;
         // Add edges back
-        console.log("Before adding back",filteredEdges);
         if (filteredEdges.length > 0) {
             filteredEdges.forEach(edges => edges.forEach(edge => {
                 const start = this.getVertex(edge.start);
@@ -112,7 +109,7 @@ export class Graph implements GraphInterface {
         return nearestVertex;
     }
 
-    addEdge(vertex1: VertexInterface, vertex2: VertexInterface, weight: number | null) {
+    addEdge(vertex1: Vertex, vertex2: Vertex, weight: number | null) {
         const edgeWeight = this.isWeighted ? weight : null;
         if (vertex1 instanceof Vertex && vertex2 instanceof Vertex) {
             vertex1.addEdge(vertex2, edgeWeight);
@@ -124,7 +121,7 @@ export class Graph implements GraphInterface {
         }
     }
 
-    removeEdge(vertex1: VertexInterface, vertex2: VertexInterface) {
+    removeEdge(vertex1: Vertex, vertex2: Vertex) {
         if (vertex1 instanceof Vertex && vertex2 instanceof Vertex) {
             vertex1.removeEdge(vertex2);
             if (!this.isDirected) {
@@ -171,7 +168,7 @@ export class Graph implements GraphInterface {
      * @param vertex1 VertexInterface
      * @param vertex2 VertexInterface
      */
-    edgeExists(vertex1: VertexInterface, vertex2: VertexInterface) {
+    edgeExists(vertex1: Vertex, vertex2: Vertex) {
         if (this.isDirected) {
             return vertex1.edges.some(edge => edge.end === vertex2);
         } else {
